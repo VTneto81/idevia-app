@@ -246,28 +246,28 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
   function downloadReport(){
     const docs=allDocsRef.current.length>0?allDocsRef.current:allDocs;
     const sc=scores||{};
-    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Relatório — ${form.name}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{font-size:26px;color:#a78bfa;margin-bottom:6px}.sub{font-size:13px;color:#64748b;margin-bottom:28px}.scores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}.score-card{background:#1e1b33;border:1px solid #2d2a4a;border-radius:10px;padding:14px 18px;min-width:120px;text-align:center}.score-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}.score-val{font-size:28px;font-weight:700;color:#a78bfa}.score-bar{height:4px;border-radius:99px;background:#2d2a4a;margin-top:8px;overflow:hidden}.score-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:20px 22px;margin-bottom:16px}.section h2{font-size:15px;font-weight:700;color:#a78bfa;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}.section p,.section li{font-size:13px;color:#cbd5e1;line-height:1.75}.section ul{padding-left:18px}.analysis-block{white-space:pre-wrap;font-size:13px;color:#cbd5e1;line-height:1.8}.footer{margin-top:32px;font-size:11px;color:#334155;text-align:center;border-top:1px solid #1e293b;padding-top:16px}</style></head><body>
-<h1>💡 ${form.name}</h1>
-<div class="sub">${form.category} · Gerado pelo idevIA em ${new Date().toLocaleDateString('pt-BR')}</div>
-<div class="scores">
-${Object.entries(sc).map(([k,v])=>`<div class="score-card"><div class="score-label">${k}</div><div class="score-val">${v}</div><div class="score-bar"><div class="score-fill" style="width:${v*10}%"></div></div></div>`).join('')}
-</div>
-${form.desc?`<div class="section"><h2>📋 Descrição</h2><p>${form.desc}</p></div>`:''}
-${form.target?`<div class="section"><h2>👥 Público-alvo</h2><p>${form.target}</p></div>`:''}
-${form.problem?`<div class="section"><h2>🎯 Problema que resolve</h2><p>${form.problem}</p></div>`:''}
-${form.model?`<div class="section"><h2>💰 Modelo de receita</h2><p>${form.model}</p></div>`:''}
-<div class="section"><h2>🤖 Análise estratégica</h2><div class="analysis-block">${(analysis||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/SCORES:[^
-]+/,'')}</div></div>
-${docs.map(d=>`<div class="section"><h2>📄 ${d.name}</h2><p>${(d.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p></div>`).join('')}
-<div class="footer">Gerado pelo idevIA · idevia-app-production.up.railway.app</div>
-</body></html>`;
+    const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{font-size:26px;color:#a78bfa;margin-bottom:6px}.sub{font-size:13px;color:#64748b;margin-bottom:28px}.scores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}.sc{background:#1e1b33;border:1px solid #2d2a4a;border-radius:10px;padding:14px 18px;min-width:120px;text-align:center}.sl{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:6px}.sv{font-size:28px;font-weight:700;color:#a78bfa}.sb{height:4px;border-radius:99px;background:#2d2a4a;margin-top:8px;overflow:hidden}.sf{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:20px 22px;margin-bottom:16px}.section h2{font-size:15px;font-weight:700;color:#a78bfa;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p,li{font-size:13px;color:#cbd5e1;line-height:1.75;white-space:pre-wrap}.footer{margin-top:32px;font-size:11px;color:#334155;text-align:center}';
+    let scoresHtml='';
+    Object.entries(sc).forEach(([k,v])=>{scoresHtml+='<div class="sc"><div class="sl">'+k+'</div><div class="sv">'+v+'</div><div class="sb"><div class="sf" style="width:'+v*10+'%"></div></div></div>';});
+    let docsHtml='';
+    docs.forEach(d=>{docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
+    const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+esc(form.name)+'</title><style>'+css+'</style></head><body>'
+      +'<h1>'+esc(form.name)+'</h1>'
+      +'<div class="sub">'+esc(form.category)+' · Gerado pelo idevIA em '+new Date().toLocaleDateString('pt-BR')+'</div>'
+      +'<div class="scores">'+scoresHtml+'</div>'
+      +(form.desc?'<div class="section"><h2>Descrição</h2><p>'+esc(form.desc)+'</p></div>':'')
+      +(form.target?'<div class="section"><h2>Público-alvo</h2><p>'+esc(form.target)+'</p></div>':'')
+      +(form.problem?'<div class="section"><h2>Problema que resolve</h2><p>'+esc(form.problem)+'</p></div>':'')
+      +(form.model?'<div class="section"><h2>Modelo de receita</h2><p>'+esc(form.model)+'</p></div>':'')
+      +'<div class="section"><h2>Análise estratégica</h2><p>'+esc((analysis||'').replace(/SCORES:[^
+]+/,''))+'</p></div>'
+      +docsHtml
+      +'<div class="footer">Gerado pelo idevIA</div></body></html>';
     const blob=new Blob([html],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;
-    a.download=`idevia_${form.name.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href=url;a.download='idevia_'+form.name.replace(/\s+/g,'_')+'.html';a.click();URL.revokeObjectURL(url);
   }
 
   function confirmCreate(){
@@ -576,8 +576,11 @@ function IdeasPage({T}){
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:9}}>
                     <div style={{fontSize:12,fontWeight:700,color:T.textStrong}}>📄 Documentos ({selected.docs.length})</div>
                     <button onClick={()=>{
-                      const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>${selected.name}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{color:#a78bfa;margin-bottom:20px}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:18px 20px;margin-bottom:14px}.section h2{font-size:14px;color:#a78bfa;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}.section p{font-size:13px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap}.footer{margin-top:24px;font-size:11px;color:#334155;text-align:center}</style></head><body><h1>💡 ${selected.name}</h1>${selected.docs.map(d=>`<div class="section"><h2>${d.name}</h2><p>${(d.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p></div>`).join('')}<div class="footer">idevIA · ${new Date().toLocaleDateString('pt-BR')}</div></body></html>`;
-                      const blob=new Blob([html],{type:'text/html'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`idevia_${selected.name.replace(/\s+/g,'_')}.html`;a.click();URL.revokeObjectURL(url);
+                      const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                      const css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{color:#a78bfa;margin-bottom:20px}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:18px 20px;margin-bottom:14px}.section h2{font-size:14px;color:#a78bfa;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p{font-size:13px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap}.footer{margin-top:24px;font-size:11px;color:#334155;text-align:center}';
+                      let docsHtml='';selected.docs.forEach(d=>{docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
+                      const html='<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>'+esc(selected.name)+'</title><style>'+css+'</style></head><body><h1>'+esc(selected.name)+'</h1>'+docsHtml+'<div class="footer">idevIA</div></body></html>';
+                      const blob=new Blob([html],{type:'text/html'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='idevia_'+selected.name.replace(/\s+/g,'_')+'.html';a.click();URL.revokeObjectURL(url);
                     }} style={{background:'#2563eb',color:'white',border:'none',borderRadius:8,padding:'5px 12px',fontSize:12,fontWeight:600,cursor:'pointer'}}>⬇️ Baixar</button>
                   </div>
                   {selected.docs.map((doc,i)=>(
