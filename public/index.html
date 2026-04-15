@@ -173,10 +173,10 @@ function AnalysisBlock({analysis,T}){
         const isWarn = /⚠️|risco|problema/i.test(sec);
         const isGood = /✅|potencial|oportunidade/i.test(sec);
         const isTitle = /^##/.test(sec);
-        const text = sec.replace(/^##\s*/,'').replace(/\*\*/g,'');
+        const text = sec.replace(/^##\s*/,'').replace(/\*\*/g,'').replace(/\*/g,'').trim();
         return (
           <div key={i} style={{background:isWarn?'rgba(220,38,38,0.08)':isGood?'rgba(22,163,74,0.08)':T.inputBg,border:`1px solid ${isWarn?'rgba(220,38,38,0.25)':isGood?'rgba(22,163,74,0.25)':T.border}`,borderRadius:9,padding:'10px 14px',fontSize:13,color:T.text,lineHeight:1.75}}>
-            {isTitle?<strong style={{color:T.textStrong,fontSize:14}}>{text}</strong>:text}
+            {isTitle?<span style={{color:T.textStrong,fontSize:14,fontWeight:600}}>{text}</span>:text}
           </div>
         );
       })}
@@ -244,7 +244,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
 
   function confirmCreate(){
     const idea={
-      id:'idea_'+Date.now(),...form,status:'em análise',analysis,scores,docs:allDocs,
+      id:'idea_'+Date.now(),...form,status:'em análise',analysis:analysis||'',scores:scores||{},docs:allDocs||[],
       folders:[
         {id:'r',name:`💡 ${form.name}`,type:'root',parentId:null},
         {id:'f1',name:'📋 01. Estratégia',type:'folder',parentId:'r'},
@@ -344,7 +344,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
                     <div style={{fontSize:12,color:T.muted}}>8 documentos + estrutura de pastas criados. Confirme para salvar.</div>
                   </div>
                   <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
-                    <button onClick={confirmCreate} style={{flex:1,minWidth:150,background:'#16a34a',color:'white',border:'none',borderRadius:10,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>🚀 Confirmar e criar</button>
+                    <button onClick={()=>{if(allDocs&&allDocs.length>0){confirmCreate();}else{alert('Aguarde a documentação terminar de carregar.');}}} style={{flex:1,minWidth:150,background:'#16a34a',color:'white',border:'none',borderRadius:10,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>🚀 Confirmar e criar</button>
                     <button onClick={onClose} style={{background:T.inputBg,color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,padding:'12px 16px',fontSize:13,cursor:'pointer'}}>Cancelar</button>
                   </div>
                 </>
