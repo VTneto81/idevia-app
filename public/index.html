@@ -61,20 +61,31 @@ async function load(key, def) {
 
 // ── CLAUDE API ────────────────────────────────────────────────────────────────
 async function ai(messages, system, maxTokens=1200) {
-  const apiKey = localStorage.getItem('anthropic-key') || '';
-  if (!apiKey) throw new Error('SEM_CHAVE');
+  const anthropicKey = localStorage.getItem('anthropic-key') || '';
+  const openaiKey = localStorage.getItem('openai-key') || '';
+  if (!anthropicKey && !openaiKey) throw new Error('SEM_CHAVE');
+
+  // Prefer OpenAI if Anthropic key has no credits, or if OpenAI key is set
+  if (openaiKey) {
+    const msgs = system ? [{role:'system',content:system},...messages] : messages;
+    const res = await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+openaiKey},
+      body:JSON.stringify({model:'gpt-4o-mini',max_tokens:maxTokens,messages:msgs})
+    });
+    const d = await res.json();
+    if(d.error) throw new Error(d.error.message||'Erro OpenAI');
+    return d.choices?.[0]?.message?.content || 'Resposta vazia.';
+  }
+
+  // Fallback to Anthropic
   const res = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true',
-    },
-    body:JSON.stringify({model:'claude-sonnet-4-5-20251001',max_tokens:maxTokens,system,messages})
+    headers:{'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})
   });
   const d = await res.json();
-  if(d.error) throw new Error(d.error.message||'Erro API');
+  if(d.error) throw new Error(d.error.message||'Erro Anthropic');
   return d.content?.map(b=>b.text||'').join('')||'Resposta vazia.';
 }
 
@@ -92,7 +103,7 @@ const NAV = [{id:'ideias',emoji:'💡',label:'Minhas Ideias'},{id:'guia',emoji:'
 
 // ── PRE-LOADED IDEAS ─────────────────────────────────────────────────────────
 const SEED_IDEAS = [
-  {id:'venture_os',name:'Venture OS',category:'SaaS / Software',desc:'Sistema operacional de negócios para fundadores solo. Gerenciador e criador de ideias com IA, análise de viabilidade, documentação automática e gestão de projetos.',target:'Fundadores solo, empreendedores individuais',problem:'Falta de organização, visão estratégica e ferramentas acessíveis para quem empreende sozinho',model:'SaaS - R$ 49/mês ou R$ 490/ano',status:'em execução',scores:{mercado:8,execucao:7,inovacao:9,receita:7,risco:6},analysis:`## 🎯 Resumo executivo\nVenture OS é o próprio sistema que você está usando agora. Já aprovado e em execução. Avaliação baseada no desenvolvimento real.\n\n## ✅ Pontos fortes reais\n- Diferencial claro: IA integrada para análise e documentação\n- Público bem definido: fundador solo tem dor real\n- Funciona como produto e como vitrine da própria capacidade técnica\n- Custo de aquisição baixo — o produto demonstra a si mesmo\n\n## ⚠️ Riscos e problemas sérios\n- Mercado de ferramentas para empreendedores é competitivo (Notion, ClickUp)\n- Diferencial de IA precisa ser genuinamente superior\n- Fundador solo como público tem baixa conversão para pago\n\n## 🏆 Concorrência e diferenciação\nNotion, ClickUp, Trello existem mas são genéricos. Venture OS é especializado para ideação e validação com IA — nicho não atendido.\n\n## 💰 Potencial de receita\n100 clientes pagantes = R$ 4.900/mês. Meta realista em 12 meses.\n\n## 🚀 Próximo passo\nUsar o próprio sistema para validar os outros produtos cadastrados.\n\n## 📊 Veredicto\nVIÁVEL — produto já em execução, fundador tem experiência direta com a dor.`,docs:[{name:'01. Sumário Executivo',status:'pronto',content:'Sistema operacional para fundadores solo. Resolve a fragmentação de ferramentas e falta de método para quem empreende individualmente. Diferencial: IA integrada para análise crítica de ideias.'},{name:'02. Análise de Mercado',status:'pronto',content:'TAM: 15M+ empreendedores no Brasil. SAM: ~500k fundadores tech-savvy. SOM: 5.000 usuários pagantes em 2 anos. Crescimento do solo founder: +40% ao ano.'},{name:'03. Modelo de Negócio',status:'pronto',content:'Freemium: até 3 ideias grátis. Pro R$49/mês: ilimitado + IA + Drive. Time R$149/mês: múltiplos usuários. Upsell: consultoria e templates.'},{name:'04. Plano de Validação',status:'pronto',content:'Fase 1: 50 beta testers gratuitos. Métrica: NPS > 7 e uso semanal > 3x. Fase 2: converter 30% para pago. Marco: R$ 2.000 MRR.'},{name:'05. Roadmap',status:'pronto',content:'M1-2: MVP core (ideias + análise IA). M3-4: Google Drive + Railway. M5-6: primeiros pagantes. M7-12: escala e novos módulos.'},{name:'06. Financeiro',status:'pronto',content:'Custo mensal infra: ~R$ 300. Break-even: 7 clientes pagantes. Meta 12 meses: 100 clientes = R$ 4.900 MRR.'},{name:'07. Riscos',status:'pronto',content:'1. Adoção lenta — mitigar com conteúdo. 2. Custo de IA escala — usar modelos menores. 3. Concorrência de grandes — focar no nicho específico.'},{name:'08. Pós-lançamento',status:'pronto',content:'Comunidade de fundadores. Marketplace de templates. API para integrações. Expansão para times pequenos.'}],folders:[{id:'r',name:'🖥️ Venture OS',type:'root',parentId:null},{id:'f1',name:'📋 01. Estratégia',type:'folder',parentId:'r'},{id:'f2',name:'🔬 02. Validação',type:'folder',parentId:'r'},{id:'f3',name:'🛠️ 03. Desenvolvimento',type:'folder',parentId:'r'},{id:'f4',name:'🚀 04. Lançamento',type:'folder',parentId:'r'},{id:'f5',name:'📈 05. Crescimento',type:'folder',parentId:'r'},{id:'f6',name:'💰 06. Financeiro',type:'folder',parentId:'r'}],createdAt:'2025-01-01T00:00:00.000Z'},
+  {id:'venture_os',name:'idevIA',category:'SaaS / Software',desc:'Sistema de gestão estratégica de ideias e negócios para fundadores solo. IA integrada para análise crítica, documentação automática e validação de projetos.',target:'Fundadores solo, empreendedores individuais',problem:'Falta de organização, visão estratégica e ferramentas acessíveis para quem empreende sozinho',model:'SaaS - R$ 49/mês ou R$ 490/ano',status:'em execução',scores:{mercado:8,execucao:7,inovacao:9,receita:7,risco:6},analysis:`## 🎯 Resumo executivo\nVenture OS é o próprio sistema que você está usando agora. Já aprovado e em execução. Avaliação baseada no desenvolvimento real.\n\n## ✅ Pontos fortes reais\n- Diferencial claro: IA integrada para análise e documentação\n- Público bem definido: fundador solo tem dor real\n- Funciona como produto e como vitrine da própria capacidade técnica\n- Custo de aquisição baixo — o produto demonstra a si mesmo\n\n## ⚠️ Riscos e problemas sérios\n- Mercado de ferramentas para empreendedores é competitivo (Notion, ClickUp)\n- Diferencial de IA precisa ser genuinamente superior\n- Fundador solo como público tem baixa conversão para pago\n\n## 🏆 Concorrência e diferenciação\nNotion, ClickUp, Trello existem mas são genéricos. Venture OS é especializado para ideação e validação com IA — nicho não atendido.\n\n## 💰 Potencial de receita\n100 clientes pagantes = R$ 4.900/mês. Meta realista em 12 meses.\n\n## 🚀 Próximo passo\nUsar o próprio sistema para validar os outros produtos cadastrados.\n\n## 📊 Veredicto\nVIÁVEL — produto já em execução, fundador tem experiência direta com a dor.`,docs:[{name:'01. Sumário Executivo',status:'pronto',content:'Sistema operacional para fundadores solo. Resolve a fragmentação de ferramentas e falta de método para quem empreende individualmente. Diferencial: IA integrada para análise crítica de ideias.'},{name:'02. Análise de Mercado',status:'pronto',content:'TAM: 15M+ empreendedores no Brasil. SAM: ~500k fundadores tech-savvy. SOM: 5.000 usuários pagantes em 2 anos. Crescimento do solo founder: +40% ao ano.'},{name:'03. Modelo de Negócio',status:'pronto',content:'Freemium: até 3 ideias grátis. Pro R$49/mês: ilimitado + IA + Drive. Time R$149/mês: múltiplos usuários. Upsell: consultoria e templates.'},{name:'04. Plano de Validação',status:'pronto',content:'Fase 1: 50 beta testers gratuitos. Métrica: NPS > 7 e uso semanal > 3x. Fase 2: converter 30% para pago. Marco: R$ 2.000 MRR.'},{name:'05. Roadmap',status:'pronto',content:'M1-2: MVP core (ideias + análise IA). M3-4: Google Drive + Railway. M5-6: primeiros pagantes. M7-12: escala e novos módulos.'},{name:'06. Financeiro',status:'pronto',content:'Custo mensal infra: ~R$ 300. Break-even: 7 clientes pagantes. Meta 12 meses: 100 clientes = R$ 4.900 MRR.'},{name:'07. Riscos',status:'pronto',content:'1. Adoção lenta — mitigar com conteúdo. 2. Custo de IA escala — usar modelos menores. 3. Concorrência de grandes — focar no nicho específico.'},{name:'08. Pós-lançamento',status:'pronto',content:'Comunidade de fundadores. Marketplace de templates. API para integrações. Expansão para times pequenos.'}],folders:[{id:'r',name:'🖥️ Venture OS',type:'root',parentId:null},{id:'f1',name:'📋 01. Estratégia',type:'folder',parentId:'r'},{id:'f2',name:'🔬 02. Validação',type:'folder',parentId:'r'},{id:'f3',name:'🛠️ 03. Desenvolvimento',type:'folder',parentId:'r'},{id:'f4',name:'🚀 04. Lançamento',type:'folder',parentId:'r'},{id:'f5',name:'📈 05. Crescimento',type:'folder',parentId:'r'},{id:'f6',name:'💰 06. Financeiro',type:'folder',parentId:'r'}],createdAt:'2025-01-01T00:00:00.000Z'},
 
   {id:'agendafacil',name:'AgendaFácil',category:'SaaS / Software',desc:'Agendador para autônomos com confirmação automática via WhatsApp e cobrança de sinal via PIX. Resolve o problema de no-show e falta de organização de cabeleireiros, psicólogos, tatuadores e outros autônomos.',target:'Autônomos: cabeleireiros, psicólogos, tatuadores, personal trainers, manicures',problem:'Perda de clientes por falta de confirmação, no-show frequente, cobrança manual e desorganização',model:'Freemium: 20 agend./mês grátis. Pro R$39/mês: ilimitado + WhatsApp + PIX',status:'validando',scores:{mercado:9,execucao:8,inovacao:7,receita:8,risco:7},analysis:`## 🎯 Resumo executivo\nProduto com maior potencial de receita imediata. Dor real, público enorme, preço acessível. Maior risco é execução técnica (WhatsApp API pode ser instável).\n\n## ✅ Pontos fortes reais\n- 15M+ autônomos no Brasil com essa dor exata\n- Ticket acessível, decisão de compra rápida\n- PIX é diferencial genuíno vs concorrentes internacionais\n- Indicação orgânica alta em comunidades de autônomos\n\n## ⚠️ Riscos\n- WhatsApp API pode ser bloqueada pelo Meta\n- Booksy e Vagaro têm versão gratuita\n- Autônomo brasileiro tem resistência a pagar por software\n\n## 📊 Veredicto\nVIÁVEL — produto âncora da Vertical 1. Prioridade #1 de execução.`,docs:[],folders:[{id:'r',name:'📅 AgendaFácil',type:'root',parentId:null},{id:'f1',name:'📋 01. Estratégia',type:'folder',parentId:'r'},{id:'f2',name:'🔬 02. Validação',type:'folder',parentId:'r'},{id:'f3',name:'🛠️ 03. MVP',type:'folder',parentId:'r'},{id:'f4',name:'👥 04. Clientes',type:'folder',parentId:'r'},{id:'f5',name:'📣 05. Marketing',type:'folder',parentId:'r'},{id:'f6',name:'💰 06. Financeiro',type:'folder',parentId:'r'}],createdAt:'2025-01-02T00:00:00.000Z'},
 
@@ -420,7 +431,7 @@ function IdeasPage({T}){
 
   useEffect(()=>{
     load('ideas_v2',[]).then(d=>{
-      if(!d||d.length===0||d.length<19){
+      if(!d||d.length===0||d.length<19||d.find(i=>i.name==='Venture OS')){
         setIdeas(SEED_IDEAS);
         save('ideas_v2',SEED_IDEAS);
         setSeeded(true);
