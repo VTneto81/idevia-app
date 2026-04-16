@@ -227,7 +227,8 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       const sm = resp.match(/SCORES:([^\n]+)/);
       let ps = {mercado:6,execucao:6,inovacao:6,receita:6,risco:6};
       if(sm) sm[1].split(',').forEach(p=>{const[k,v]=p.split('=');if(k&&v){var cleanKey=k.trim().replace(/\*/g,'').replace(/[áâã]/gi,'a').replace(/[éê]/gi,'e').replace(/[í]/gi,'i').replace(/[óôõ]/gi,'o').replace(/[ú]/gi,'u').replace(/[ç]/gi,'c').toLowerCase();if(['mercado','execucao','inovacao','receita','risco'].indexOf(cleanKey)>=0)ps[cleanKey]=parseInt(v)||6;}});
-      setScores(ps); setAnalysis(resp.replace(/SCORES:[^\n]+/,'').trim()); setStep('result');
+      var cleanResp=resp.replace(/SCORES:[^\n]+/,'').replace(/(^|\n)\s*(SCORES|Scores)\s*[-:][^\n]+/gi,'').replace(/(^|\n)\s*Total\s*[-:][^\n]+/gi,'').trim();
+      setScores(ps); setAnalysis(cleanResp); setStep('result');
     } catch(e){
       if(e.message==='SEM_CHAVE'){
         setAnalysis('## ⚙️ Chave API não configurada\n\nVá em Configurações → Integrações e cole sua chave Anthropic (console.anthropic.com). É gratuito para começar.');
@@ -303,11 +304,10 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +'*{box-sizing:border-box;margin:0;padding:0}'
       +'html,body{background:#0a0a14;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}'
       +'body{padding:0 0 100px 0;max-width:1100px;margin:0 auto}'
-      +'.hero{background:linear-gradient(135deg,#1a0f2e 0%,#0f0f1a 100%);padding:50px 40px 40px;border-bottom:1px solid #2d2a4a;position:relative;overflow:hidden}'
-      +'.hero::before{content:"";position:absolute;top:-50%;right:-20%;width:500px;height:500px;background:radial-gradient(circle,rgba(124,58,237,0.15) 0%,transparent 70%);pointer-events:none}'
-      +'.brand{font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.2em;text-transform:uppercase;margin-bottom:18px;position:relative}'
-      +'.hero h1{font-size:42px;font-weight:800;color:#f0f0ff;margin-bottom:12px;line-height:1.1;position:relative}'
-      +'.meta{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:#94a3b8;position:relative}'
+      +'.hero{background:linear-gradient(135deg,#1a0f2e 0%,#0f0f1a 100%);padding:50px 40px 40px;border-bottom:1px solid #2d2a4a;position:relative}'
+      +'.brand{font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.2em;text-transform:uppercase;margin-bottom:18px}'
+      +'.hero h1{font-size:42px;font-weight:800;color:#f0f0ff;margin-bottom:12px;line-height:1.1}'
+      +'.meta{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:#94a3b8}'
       +'.meta span{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:4px 12px}'
       +'.verdict-badge{display:inline-flex;align-items:center;gap:8px;background:'+verdictBg+';color:'+verdictColor+';border:1px solid '+verdictColor+';border-radius:30px;padding:8px 20px;font-size:13px;font-weight:700;letter-spacing:.05em;margin-top:18px;position:relative}'
       +'.section{padding:32px 40px;border-bottom:1px solid rgba(45,42,74,0.5)}'
@@ -408,21 +408,34 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
     // Analysis (broken into cards per ## section)
     var analysisHtml='';
     if(cleanAnalysis){
-      var sections=cleanAnalysis.split(/\n\n+/).filter(function(s){return s.trim();});
+      // Normalize: collapse blank lines after ## title so body stays with title
+      var normalized=cleanAnalysis.replace(/(^|\n)##\s+([^\n]+)\n\n+/g,'$1## $2\n');
+      // Remove stray SCORES/Scores/Total lines that sometimes leak from LLM
+      normalized=normalized.replace(/(^|\n)\s*(SCORES|Scores)\s*[-:][^\n]+/gi,'');
+      normalized=normalized.replace(/(^|\n)\s*Total\s*[-:][^\n]+/gi,'');
+      // Split into sections by ## headers
+      var parts=normalized.split(/(?=^##\s+)/gm).filter(function(s){return s.trim();});
       var aboxes='';
-      sections.forEach(function(sec){
-        var titleMatch=sec.match(/^##\s+(.+?)(\n|$)/);
+      parts.forEach(function(sec){
+        var cleanSec=sec.trim();
+        // Skip sections with no meaningful content (just ** or empty)
+        var stripped=cleanSec.replace(/[*#\s]/g,'');
+        if(stripped.length<3) return;
+        var titleMatch=cleanSec.match(/^##\s+(.+?)(?:\n|$)/);
         if(titleMatch){
-          var title=titleMatch[1].trim();
-          var body=sec.replace(/^##\s+.+?\n?/,'').trim();
+          var title=titleMatch[1].trim().replace(/\*\*/g,'');
+          var body=cleanSec.replace(/^##\s+.+?(?:\n|$)/,'').trim();
+          // Skip if body is empty or just markdown artifacts
+          var bodyStripped=body.replace(/[*#\s]/g,'');
+          if(bodyStripped.length<3) return;
           var bodyHtml=esc(body).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');
           aboxes+='<div class="analysis-box"><h3>'+esc(title)+'</h3><p>'+bodyHtml+'</p></div>';
         }else{
-          var plainHtml=esc(sec).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');
+          var plainHtml=esc(cleanSec).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');
           aboxes+='<div class="analysis-box"><p>'+plainHtml+'</p></div>';
         }
       });
-      analysisHtml='<section class="section"><div class="section-title">Analise Estrategica</div>'+aboxes+'</section>';
+      if(aboxes) analysisHtml='<section class="section"><div class="section-title">Analise Estrategica</div>'+aboxes+'</section>';
     }
 
     // 8 docs as accordion
@@ -590,11 +603,16 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
                 <>
                   <div style={{background:'rgba(22,163,74,0.1)',border:'1px solid rgba(22,163,74,0.3)',borderRadius:12,padding:'14px',marginBottom:14,textAlign:'center'}}>
                     <div style={{fontSize:15,fontWeight:700,color:'#4ade80',marginBottom:4}}>🎉 Documentação completa!</div>
-                    <div style={{fontSize:12,color:T.muted}}>8 documentos + estrutura de pastas criados. Confirme para salvar.</div>
+                    <div style={{fontSize:12,color:T.muted}}>8 documentos + estrutura de pastas criados.</div>
                   </div>
+                  <div style={{background:T.inputBg,border:`1px solid ${T.border}`,borderRadius:10,padding:'10px 14px',marginBottom:10,fontSize:11,color:T.hint}}>
+                    <div style={{marginBottom:6}}><strong style={{color:'#4ade80'}}>💾 Salvar em Minhas Ideias</strong> — guarda a ideia dentro do app para acessar depois</div>
+                    <div><strong style={{color:'#60a5fa'}}>📥 Baixar Relatório</strong> — gera um arquivo HTML (com opção de PDF) para compartilhar ou arquivar</div>
+                  </div>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:10,textAlign:'center',fontStyle:'italic'}}>Você pode fazer os dois, só um, ou nenhum</div>
                   <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
-                    <button onClick={()=>{confirmCreate();}} style={{flex:1,minWidth:150,background:'#16a34a',color:'white',border:'none',borderRadius:10,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>🚀 Confirmar e criar</button>
-                    <button onClick={downloadReport} style={{background:'#2563eb',color:'white',border:'none',borderRadius:10,padding:'12px 16px',fontSize:13,fontWeight:700,cursor:'pointer'}}>⬇️ Baixar HTML</button>
+                    <button onClick={()=>{confirmCreate();}} style={{flex:1,minWidth:150,background:'#16a34a',color:'white',border:'none',borderRadius:10,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>💾 Salvar em Minhas Ideias</button>
+                    <button onClick={downloadReport} style={{background:'#2563eb',color:'white',border:'none',borderRadius:10,padding:'12px 16px',fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Baixar Relatório</button>
                     <button onClick={onClose} style={{background:T.inputBg,color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,padding:'12px 16px',fontSize:13,cursor:'pointer'}}>Cancelar</button>
                   </div>
                 </>
