@@ -345,10 +345,14 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +'.verdict-banner .vb-sub{font-size:13px;color:#94a3b8}'
       +'.footer{text-align:center;padding:40px 40px 20px;color:#475569;font-size:11px}'
       +'.footer strong{color:#7c3aed}'
-      +'.pdf-btn{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#7c3aed 0%,#a78bfa 100%);color:white;border:none;border-radius:12px;padding:16px 26px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,0.5);z-index:100;display:flex;align-items:center;gap:8px;transition:transform .15s}'
-      +'.pdf-btn:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,0.6)}'
-      +'@media(max-width:768px){.hero{padding:32px 20px}.hero h1{font-size:30px}.section{padding:24px 20px}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}'
-      +'@media print{body{max-width:none;padding:0}.pdf-btn{display:none}.doc-body{max-height:none!important;padding:8px 22px 22px 22px!important;border-top:1px solid #2d2a4a!important}.doc-item{break-inside:avoid}.section{break-inside:avoid}.chart-card{break-inside:avoid}}';
+      +'.btn-group{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:100}'
+      +'.pdf-btn{background:linear-gradient(135deg,#7c3aed 0%,#a78bfa 100%);color:white;border:none;border-radius:12px;padding:14px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,0.5);display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s;min-width:180px}'
+      +'.pdf-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,0.6)}'
+      +'.pdf-btn:disabled{opacity:0.6;cursor:not-allowed}'
+      +'.pdf-btn.pdf-print{background:rgba(30,30,50,0.95);border:1px solid #2d2a4a;box-shadow:0 4px 16px rgba(0,0,0,0.4)}'
+      +'.pdf-btn.pdf-print:hover{background:rgba(40,40,70,0.95)}'
+      +'@media(max-width:768px){.hero{padding:32px 20px}.hero h1{font-size:30px}.section{padding:24px 20px}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.btn-group{bottom:14px;right:14px;left:14px}.pdf-btn{min-width:0}}'
+      +'@media print{body{max-width:none;padding:0;background:white;color:black}.btn-group{display:none}.doc-body{max-height:none!important;padding:8px 22px 22px 22px!important;border-top:1px solid #2d2a4a!important}.doc-item,.section,.chart-card,.verdict-banner,.kpi,.infocard,.analysis-box{break-inside:avoid;page-break-inside:avoid}.hero{page-break-after:avoid}}';
 
     // Hero
     var heroHtml='<header class="hero">'
@@ -440,8 +444,10 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
     var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'
       +'<title>'+esc(form.name)+' — Relatorio idevIA</title>'
       +'<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"><\/script>'
+      +'<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>'
       +'<style>'+css+'</style>'
       +'</head><body>'
+      +'<div id="report">'
       +heroHtml
       +kpisHtml
       +chartsHtml
@@ -450,8 +456,13 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +docsHtml
       +verdictBannerHtml
       +'<div class="footer">Relatorio gerado pelo <strong>idevIA</strong> em '+new Date().toLocaleDateString('pt-BR')+' · Sistema de gestao estrategica para fundadores</div>'
-      +'<button class="pdf-btn" onclick="window.print()">📄 Salvar como PDF</button>'
-      +'<script>window.addEventListener("load",function(){'+chartScript+'});<\/script>'
+      +'</div>'
+      +'<div class="btn-group">'
+      +'<button class="pdf-btn pdf-direct" id="btnPdf" disabled>⏳ Preparando PDF...</button>'
+      +'<button class="pdf-btn pdf-print" onclick="window.print()">🖨️ Imprimir</button>'
+      +'</div>'
+      +'<script>window.addEventListener("load",function(){'+chartScript
+      +'setTimeout(function(){var b=document.getElementById("btnPdf");b.disabled=false;b.innerHTML="📥 Baixar PDF";b.onclick=function(){b.disabled=true;b.innerHTML="⏳ Gerando...";var opt={margin:[12,10,15,10],filename:"idevia_'+form.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'')+'.pdf",image:{type:"jpeg",quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:"#0a0a14",logging:false},jsPDF:{unit:"mm",format:"a4",orientation:"portrait",compress:true},pagebreak:{mode:["css","legacy"],avoid:[".section",".doc-item",".chart-card",".verdict-banner",".kpi",".infocard",".analysis-box"]}};html2pdf().set(opt).from(document.getElementById("report")).save().then(function(){b.disabled=false;b.innerHTML="📥 Baixar PDF";}).catch(function(){b.disabled=false;b.innerHTML="📥 Baixar PDF";alert("Erro ao gerar PDF. Use o botao Imprimir.");});};},2500);});<\/script>'
       +'</body></html>';
     var blob=new Blob([html],{type:'text/html'});
     var url=URL.createObjectURL(blob);
