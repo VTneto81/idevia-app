@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <title>Venture OS</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <title>idevIA</title>
+  <script crossorigin="anonymous" src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;overflow:hidden}
@@ -38,11 +38,15 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="err" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a0000;color:#ff6b6b;padding:30px;font-family:monospace;font-size:14px;overflow:auto;white-space:pre-wrap"></div>
 <button id="hamburger" onclick="toggleSidebar()">☰</button>
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
 <script>
   function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open');}
   function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open');}
+</script>
+<script>
+window.onerror=function(m,s,l,c,e){var d=document.getElementById('err');if(d){d.style.display='block';d.textContent='ERRO: '+m+' L'+l+' | '+(e&&e.stack?e.stack:'');}};
 </script>
 
 <script>
@@ -75,7 +79,7 @@ async function ai(messages, system, maxTokens=1200) {
     });
     const d = await res.json();
     if(d.error) throw new Error(d.error.message||'Erro OpenAI');
-    return d.choices?.[0]?.message?.content || 'Resposta vazia.';
+    return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || 'Resposta vazia.';
   }
 
   // Fallback to Anthropic
@@ -86,7 +90,7 @@ async function ai(messages, system, maxTokens=1200) {
   });
   const d = await res.json();
   if(d.error) throw new Error(d.error.message||'Erro Anthropic');
-  return d.content?.map(b=>b.text||'').join('')||'Resposta vazia.';
+  return (d.content && d.content.map(b=>b.text||'').join('')) || 'Resposta vazia.';
 }
 
 // ── THEMES ────────────────────────────────────────────────────────────────────
@@ -188,7 +192,8 @@ function AnalysisBlock({analysis,T}){
 
 function CreateIdeaModal({T,onClose,onCreated,prefill}){
   const [step,setStep]=useState('form');
-  const [form,setForm]=useState(prefill||{name:'',category:'SaaS / Software',desc:'',target:'',problem:'',model:''});
+  const savedCity=localStorage.getItem('user-city')||'';
+  const [form,setForm]=useState(prefill?Object.assign({city:savedCity},prefill):{name:'',category:'SaaS / Software',desc:'',target:'',problem:'',model:'',city:savedCity});
   const [analysis,setAnalysis]=useState(null);
   const [scores,setScores]=useState(null);
   const [docProgress,setDocProgress]=useState([]);
@@ -199,8 +204,10 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
     if(!form.name.trim()||!form.desc.trim()) return;
     setStep('analyzing');
     try {
-      const resp = await ai([{role:'user',content:`Analise esta ideia de negócio de forma CRÍTICA, REALISTA e IMPARCIAL — sem romantismo.\n\nIDEIA: ${form.name}\nCATEGORIA: ${form.category}\nDESCRIÇÃO: ${form.desc}\nPÚBLICO: ${form.target||'não especificado'}\nPROBLEMA: ${form.problem||'não especificado'}\nMODELO: ${form.model||'não especificado'}\n\n## 🎯 Resumo executivo\n## ✅ Pontos fortes reais\n## ⚠️ Riscos e problemas sérios\n## 🏆 Concorrência e diferenciação\n## 💰 Potencial de receita realista\n## 🚀 Próximo passo mais importante\n## 📊 Veredicto (VIÁVEL / VIÁVEL COM RESSALVAS / INVIÁVEL)\n\nFinal da análise retorne:\nSCORES:mercado=X,execucao=X,inovacao=X,receita=X,risco=X`}],
-        'Consultor de negócios sênior. Seja direto, crítico e útil.',2000);
+      const cityLine = form.city ? '\nLOCALIZACAO: '+form.city : '';
+      const cityRule = form.city ? '\n- Analise considerando o mercado local de '+form.city+', tamanho da cidade, poder aquisitivo e concorrencia local.' : '';
+      const resp = await ai([{role:'user',content:`Analise esta ideia de forma CRITICA, REALISTA e IMPARCIAL. Sem romantismo.\n\nIDEIA: ${form.name}\nCATEGORIA: ${form.category}\nDESCRICAO: ${form.desc}\nPUBLICO: ${form.target||'nao especificado'}\nPROBLEMA: ${form.problem||'nao especificado'}\nMODELO: ${form.model||'nao especificado'}${cityLine}\n\nREGRAS:\n- Se INVIAVEL, diga no PRIMEIRO paragrafo. Nao romantize.\n- Nao use com planejamento certo pode funcionar para ideias sem mercado.\n- Seja direto e conciso (~300 palavras).\n- Negrito apenas nos titulos de secao.${cityRule}\n\n## Resumo executivo\n## Pontos fortes reais\n## Riscos e problemas serios\n## Concorrencia e diferenciacao\n## Potencial de receita realista\n## Proximo passo mais importante\n## Veredicto (VIAVEL / VIAVEL COM RESSALVAS / INVIAVEL)\n\nFinal retorne:\nSCORES:mercado=X,execucao=X,inovacao=X,receita=X,risco=X`}],
+        'Consultor de negocios senior. Direto, critico e util. Maximo 300 palavras.',2000);
       const sm = resp.match(/SCORES:([^\n]+)/);
       let ps = {mercado:6,execucao:6,inovacao:6,receita:6,risco:6};
       if(sm) sm[1].split(',').forEach(p=>{const[k,v]=p.split('=');if(k&&v)ps[k.trim()]=parseInt(v)||6;});
@@ -240,7 +247,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       }
       await new Promise(r=>setTimeout(r,200));
     }
-    setAllDocs(generated);
+    allDocsRef.current=generated;setAllDocs(generated);
   }
 
   function downloadReport(){
@@ -260,8 +267,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +(form.target?'<div class="section"><h2>Público-alvo</h2><p>'+esc(form.target)+'</p></div>':'')
       +(form.problem?'<div class="section"><h2>Problema que resolve</h2><p>'+esc(form.problem)+'</p></div>':'')
       +(form.model?'<div class="section"><h2>Modelo de receita</h2><p>'+esc(form.model)+'</p></div>':'')
-      +'<div class="section"><h2>Análise estratégica</h2><p>'+esc((analysis||'').replace(/SCORES:[^
-]+/,''))+'</p></div>'
+      +'<div class="section"><h2>Análise estratégica</h2><p>'+esc((analysis||'').replace(/SCORES:[^\n]+/,''))+'</p></div>'
       +docsHtml
       +'<div class="footer">Gerado pelo idevIA</div></body></html>';
     const blob=new Blob([html],{type:'text/html'});
@@ -312,7 +318,10 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
                 <div><div style={{fontSize:11,color:T.muted,marginBottom:4}}>Público-alvo</div><input value={form.target} onChange={e=>setForm(p=>({...p,target:e.target.value}))} placeholder="Ex: autônomos, pais..." style={inp}/></div>
                 <div><div style={{fontSize:11,color:T.muted,marginBottom:4}}>Modelo de receita</div><input value={form.model} onChange={e=>setForm(p=>({...p,model:e.target.value}))} placeholder="Ex: R$39/mês, comissão..." style={inp}/></div>
               </div>
-              <div><div style={{fontSize:11,color:T.muted,marginBottom:4}}>Problema que resolve</div><input value={form.problem} onChange={e=>setForm(p=>({...p,problem:e.target.value}))} placeholder="Qual dor real essa ideia resolve?" style={inp}/></div>
+              <div className="g2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}}>
+                <div><div style={{fontSize:11,color:T.muted,marginBottom:4}}>Problema que resolve</div><input value={form.problem} onChange={e=>setForm(p=>({...p,problem:e.target.value}))} placeholder="Qual dor real essa ideia resolve?" style={inp}/></div>
+                <div><div style={{fontSize:11,color:T.muted,marginBottom:4}}>Cidade/Estado</div><input value={form.city} onChange={e=>{setForm(p=>({...p,city:e.target.value}));localStorage.setItem('user-city',e.target.value);}} placeholder="Ex: Votuporanga SP" style={inp}/></div>
+              </div>
               <button onClick={analyzeIdea} disabled={!form.name.trim()||!form.desc.trim()} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:'none',borderRadius:10,padding:'12px',fontSize:14,fontWeight:700,cursor:'pointer',opacity:(!form.name.trim()||!form.desc.trim())?0.4:1}}>
                 🤖 Analisar com IA
               </button>
@@ -341,6 +350,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
                   <ScoreBar label="Inovação" score={scores.inovacao} color="#7c3aed" T={T}/>
                   <ScoreBar label="Receita" score={scores.receita} color="#d97706" T={T}/>
                   <ScoreBar label="Baixo risco" score={scores.risco} color="#16a34a" T={T}/>
+                  {(scores.mercado+scores.execucao+scores.inovacao+scores.receita+scores.risco)<25&&<div style={{marginTop:10,background:'rgba(220,38,38,0.12)',border:'1px solid rgba(220,38,38,0.3)',borderRadius:9,padding:'10px 13px',fontSize:12,color:'#f87171',fontWeight:600}}>{'\u26A0\uFE0F Score total abaixo de 25/50 \u2014 esta ideia apresenta serios problemas de viabilidade'}</div>}
                 </div>
               )}
               <AnalysisBlock analysis={analysis} T={T}/>
@@ -398,7 +408,7 @@ function GenerateModal({T,onClose,onSelect}){
     if(!niche.trim()) return;
     setLoading(true); setIdeas([]);
     try{
-      const r=await ai([{role:'user',content:`Gere 3 ideias de negócio para o nicho: "${niche}". Retorne APENAS este JSON:\n[{"nome":"...","categoria":"...","descricao":"...","publicoAlvo":"...","modeloReceita":"...","problemaResolve":"...","potencial":"Alto/Médio/Baixo","dificuldade":"Alta/Média/Baixa"}]`}],'Especialista em modelos de negócio. Apenas JSON válido.',900);
+      const r=await ai([{role:'user',content:`Gere 3 ideias de negocio REALISTAS e VIAVEIS para o nicho: "${niche}".\n\nREGRAS:\n- Apenas ideias com mercado real e verificavel\n- Recuse nichos bizarros (circo de pulgas, etc). Se inviavel, sugira variacao viavel do tema\n- Potencial Alto apenas se TAM > R$10M/ano no Brasil\n- Seja critico, nao infle potencial\n\nRetorne APENAS JSON:\n[{"nome":"...","categoria":"...","descricao":"...","publicoAlvo":"...","modeloReceita":"...","problemaResolve":"...","potencial":"Alto/Medio/Baixo","dificuldade":"Alta/Media/Baixa"}]`}],'Especialista em modelos de negocio. Seja realista e critico. Apenas JSON valido, sem markdown.',900);
       setIdeas(JSON.parse(r.replace(/```json|```/g,'').trim()));
     }catch(e){
       if(e.message==='SEM_CHAVE'){
@@ -430,11 +440,12 @@ function GenerateModal({T,onClose,onSelect}){
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:7,flexWrap:'wrap',gap:7}}>
                 <div style={{fontWeight:700,fontSize:14,color:T.textStrong}}>{idea.nome}</div>
                 <div style={{display:'flex',gap:5}}>
-                  <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:'rgba(22,163,74,0.15)',color:'#4ade80',border:'1px solid rgba(22,163,74,0.3)'}}>Potencial {idea.potencial}</span>
+                  <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:idea.potencial==='Baixo'?'rgba(220,38,38,0.15)':'rgba(22,163,74,0.15)',color:idea.potencial==='Baixo'?'#f87171':'#4ade80',border:idea.potencial==='Baixo'?'1px solid rgba(220,38,38,0.3)':'1px solid rgba(22,163,74,0.3)'}}>Potencial {idea.potencial}</span>
                   <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:'rgba(37,99,235,0.15)',color:'#93c5fd',border:'1px solid rgba(37,99,235,0.3)'}}>{idea.dificuldade}</span>
                 </div>
               </div>
               <div style={{fontSize:12,color:T.muted,lineHeight:1.6,marginBottom:9}}>{idea.descricao}</div>
+              {idea.potencial==='Baixo'&&<div style={{fontSize:11,color:'#f87171',background:'rgba(220,38,38,0.1)',border:'1px solid rgba(220,38,38,0.25)',borderRadius:7,padding:'6px 10px',marginBottom:9}}>{'\u26A0\uFE0F Potencial baixo \u2014 considere se vale o investimento'}</div>}
               <button onClick={()=>{onSelect(idea);onClose();}} style={{background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,borderRadius:7,padding:'6px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>Usar esta →</button>
             </div>
           ))}
@@ -523,7 +534,7 @@ function IdeasPage({T}){
                 <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:(STATUS_COLORS[idea.status]||'#64748b')+'22',color:STATUS_COLORS[idea.status]||'#94a3b8',border:`1px solid ${STATUS_COLORS[idea.status]||'#64748b'}44`,fontWeight:700}}>{idea.status}</span>
                 <span style={{fontSize:11,color:T.hint}}>{idea.category}</span>
               </div>
-              <div style={{fontSize:12,color:T.muted,lineHeight:1.6}}>{idea.desc?.slice(0,120)}{idea.desc?.length>120?'...':''}</div>
+              <div style={{fontSize:12,color:T.muted,lineHeight:1.6}}>{(idea.desc||'').slice(0,120)}{(idea.desc||'').length>120?'...':''}</div>
             </div>
             <div style={{display:'flex',gap:5,flexShrink:0}}>
               <button onClick={()=>setSelected(idea)} style={{background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7,padding:'5px 11px',fontSize:11,cursor:'pointer'}}>Ver detalhes</button>
@@ -1209,7 +1220,7 @@ function MembersPage({T,currentUser}){
   const [showAdd,setShowAdd]=useState(false);
   const [newM,setNewM]=useState({name:'',email:'',role:'viewer',projects:[]});
   const inp={background:T.inputBg,border:`1px solid ${T.inputBorder}`,borderRadius:8,padding:'9px 11px',color:T.text,fontSize:13,width:'100%',outline:'none'};
-  const isAdmin=currentUser?.role==='admin';
+  const isAdmin=currentUser && currentUser.role==='admin';
 
   function saveM(d){setMembers(d);localStorage.setItem('members-v2',JSON.stringify(d));}
   function addMember(){
@@ -1304,9 +1315,9 @@ function PasswordsPage({T}){
     setShowAdd(false);
   }
   function delCred(proj,id){if(!window.confirm('Remover?'))return;saveC({...creds,[proj]:(creds[proj]||[]).filter(c=>c.id!==id)});}
-  function copyText(text,id){navigator.clipboard?.writeText(text);setCopied(id);setTimeout(()=>setCopied(''),1500);}
+  function copyText(text,id){navigator.clipboard && navigator.clipboard.writeText(text);setCopied(id);setTimeout(()=>setCopied(''),1500);}
 
-  const list=(creds[project]||[]).filter(c=>!search||c.service.toLowerCase().includes(search.toLowerCase())||c.login?.toLowerCase().includes(search.toLowerCase()));
+  const list=(creds[project]||[]).filter(c=>!search||c.service.toLowerCase().includes(search.toLowerCase())||(c.login && c.login.toLowerCase().includes(search.toLowerCase())));
 
   return(
     <div>
@@ -1651,7 +1662,7 @@ function App(){
         <div id="topbar" style={{background:T.topbar,borderBottom:`1px solid ${T.border}`,padding:'13px 22px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexShrink:0,flexWrap:'wrap'}}>
           <div>
             <div style={{fontSize:10,letterSpacing:'.18em',color:T.topbarLabel,textTransform:'uppercase',marginBottom:2}}>
-              {NAV.find(n=>n.id===page)?.emoji} {NAV.find(n=>n.id===page)?.label}
+              {(NAV.find(n=>n.id===page)||{}).emoji} {(NAV.find(n=>n.id===page)||{}).label}
             </div>
             <div style={{fontSize:17,fontWeight:700,color:T.textStrong}}>{appIcon} {appName}</div>
           </div>
@@ -1681,7 +1692,8 @@ function App(){
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+class EB extends React.Component{constructor(p){super(p);this.state={e:null};}static getDerivedStateFromError(e){return{e};}render(){if(this.state.e)return React.createElement('div',{style:{background:'#1a0000',color:'#ff6b6b',padding:30,fontFamily:'monospace',minHeight:'100vh',whiteSpace:'pre-wrap'}},'ERRO REACT: '+String(this.state.e));return this.props.children;}}
+ReactDOM.createRoot(document.getElementById('root')).render(<EB><App/></EB>);
 </script>
 
 </body>
