@@ -357,16 +357,10 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +'.pdf-btn.pdf-print{background:rgba(30,30,50,0.95);border:1px solid #2d2a4a;box-shadow:0 4px 16px rgba(0,0,0,0.4)}'
       +'.pdf-btn.pdf-print:hover{background:rgba(40,40,70,0.95)}'
       +'@media(max-width:768px){.hero{padding:32px 20px}.hero h1{font-size:30px}.section{padding:24px 20px}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.btn-group{bottom:14px;right:14px;left:14px}.pdf-btn{min-width:0}}'
-      +'body.pdf-mode{max-width:900px!important;padding:0!important;background:#0a0a14}'
+      +'body.pdf-mode{padding:0!important}'
       +'body.pdf-mode .btn-group{display:none!important}'
       +'body.pdf-mode .doc-body{max-height:none!important;padding:8px 22px 22px 22px!important;border-top:1px solid #2d2a4a!important}'
       +'body.pdf-mode .doc-arrow{display:none}'
-      +'body.pdf-mode .charts{grid-template-columns:1fr 1fr!important;gap:12px}'
-      +'body.pdf-mode .chart-card{min-height:280px}'
-      +'body.pdf-mode .chart-canvas{height:220px}'
-      +'body.pdf-mode .hero{padding:30px 30px 24px}'
-      +'body.pdf-mode .section{padding:24px 30px}'
-      +'body.pdf-mode .hero h1{font-size:32px}'
       +'body.pdf-mode .doc-item,body.pdf-mode .section,body.pdf-mode .chart-card,body.pdf-mode .verdict-banner,body.pdf-mode .kpi,body.pdf-mode .infocard,body.pdf-mode .analysis-box{page-break-inside:avoid;break-inside:avoid}'
       +'@media print{body{max-width:none;padding:0;background:white;color:black}.btn-group{display:none}.doc-body{max-height:none!important;padding:8px 22px 22px 22px!important;border-top:1px solid #2d2a4a!important}.doc-item,.section,.chart-card,.verdict-banner,.kpi,.infocard,.analysis-box{break-inside:avoid;page-break-inside:avoid}.hero{page-break-after:avoid}}';
 
@@ -423,8 +417,12 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
         if(stripped.length<3) return;
         var titleMatch=cleanSec.match(/^##\s+(.+?)(?:\n|$)/);
         if(titleMatch){
-          var title=titleMatch[1].trim().replace(/\*\*/g,'');
+          var title=titleMatch[1].trim().replace(/\*\*/g,'').replace(/^#+\s*/,'');
           var body=cleanSec.replace(/^##\s+.+?(?:\n|$)/,'').trim();
+          // Strip duplicate title from start of body (AI often repeats it)
+          var titleEscaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+          body=body.replace(new RegExp('^(?:\\*\\*)?\\s*'+titleEscaped+'\\s*(?:\\*\\*)?\\s*(?:\\n+|$)','i'),'');
+          body=body.trim();
           // Skip if body is empty or just markdown artifacts
           var bodyStripped=body.replace(/[*#\s]/g,'');
           if(bodyStripped.length<3) return;
@@ -491,7 +489,7 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       +'<button class="pdf-btn pdf-print" onclick="window.print()">🖨️ Imprimir</button>'
       +'</div>'
       +'<script>window.addEventListener("load",function(){'+chartScript
-      +'setTimeout(function(){var b=document.getElementById("btnPdf");b.disabled=false;b.innerHTML="📥 Baixar PDF";b.onclick=function(){b.disabled=true;b.innerHTML="⏳ Gerando PDF...";document.body.classList.add("pdf-mode");var docs=document.querySelectorAll(".doc-item");docs.forEach(function(d){d.classList.add("open");});var opt={margin:[10,8,12,8],filename:"idevia_'+form.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'')+'.pdf",image:{type:"jpeg",quality:0.98},html2canvas:{scale:3,useCORS:true,backgroundColor:"#0a0a14",logging:false,windowWidth:900,letterRendering:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait",compress:true},pagebreak:{mode:["css","legacy"],avoid:[".section",".doc-item",".chart-card",".verdict-banner",".kpi",".infocard",".analysis-box"]}};html2pdf().set(opt).from(document.getElementById("report")).save().then(function(){document.body.classList.remove("pdf-mode");docs.forEach(function(d,i){if(i>0)d.classList.remove("open");});b.disabled=false;b.innerHTML="📥 Baixar PDF";}).catch(function(){document.body.classList.remove("pdf-mode");b.disabled=false;b.innerHTML="📥 Baixar PDF";alert("Erro ao gerar PDF. Use o botao Imprimir.");});};},2500);});<\/script>'
+      +'setTimeout(function(){var b=document.getElementById("btnPdf");b.disabled=false;b.innerHTML="📥 Baixar PDF";b.onclick=function(){b.disabled=true;b.innerHTML="⏳ Gerando PDF...";document.body.classList.add("pdf-mode");var docs=document.querySelectorAll(".doc-item");docs.forEach(function(d){d.classList.add("open");});setTimeout(function(){var opt={margin:[10,10,10,10],filename:"idevia_'+form.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'')+'.pdf",image:{type:"jpeg",quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:"#0a0a14",logging:false},jsPDF:{unit:"mm",format:"a4",orientation:"portrait",compress:true},pagebreak:{mode:["css","legacy"],avoid:[".section",".doc-item",".chart-card",".verdict-banner",".analysis-box"]}};html2pdf().set(opt).from(document.getElementById("report")).save().then(function(){document.body.classList.remove("pdf-mode");docs.forEach(function(d,i){if(i>0)d.classList.remove("open");});b.disabled=false;b.innerHTML="📥 Baixar PDF";}).catch(function(){document.body.classList.remove("pdf-mode");b.disabled=false;b.innerHTML="📥 Baixar PDF";alert("Erro ao gerar PDF. Use o botao Imprimir.");});},400);};},2500);});<\/script>'
       +'</body></html>';
     var blob=new Blob([html],{type:'text/html'});
     var url=URL.createObjectURL(blob);
