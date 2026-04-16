@@ -167,16 +167,28 @@ function ScoreBar({label,score,color,T}){
 // ── ANALYSIS RENDER ──────────────────────────────────────────────────────────
 function AnalysisBlock({analysis,T}){
   if (!analysis) return null;
+  function renderInline(text){
+    const parts=[];var lastIdx=0;var regex=/\*\*([^*]+)\*\*/g;var m;var i=0;
+    while((m=regex.exec(text))!==null){
+      if(m.index>lastIdx) parts.push(text.slice(lastIdx,m.index));
+      parts.push(<strong key={i++} style={{color:T.textStrong,fontWeight:700}}>{m[1]}</strong>);
+      lastIdx=regex.lastIndex;
+    }
+    if(lastIdx<text.length) parts.push(text.slice(lastIdx));
+    return parts.length?parts:text;
+  }
   return (
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {analysis.split('\n\n').filter(s=>s.trim()).map((sec,i)=>{
-        const isWarn = /⚠️|risco|problema/i.test(sec);
-        const isGood = /✅|potencial|oportunidade/i.test(sec);
+        const isWarn = /⚠️|risco|problema|INVIAVEL|inviavel/i.test(sec);
+        const isGood = /✅|VIAVEL\s|viavel\s|oportunidade/i.test(sec);
         const isTitle = /^##/.test(sec);
-        const text = sec.replace(/^##\s*/,'').replace(/\*\*/g,'').replace(/\*/g,'').trim();
+        const cleanText = sec.replace(/^##\s*/,'').trim();
         return (
           <div key={i} style={{background:isWarn?'rgba(220,38,38,0.08)':isGood?'rgba(22,163,74,0.08)':T.inputBg,border:`1px solid ${isWarn?'rgba(220,38,38,0.25)':isGood?'rgba(22,163,74,0.25)':T.border}`,borderRadius:9,padding:'10px 14px',fontSize:13,color:T.text,lineHeight:1.75}}>
-            {isTitle?<span style={{color:T.textStrong,fontSize:14,fontWeight:600}}>{text}</span>:text}
+            {isTitle
+              ? <div style={{color:T.accent,fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>{renderInline(cleanText)}</div>
+              : <div>{renderInline(cleanText)}</div>}
           </div>
         );
       })}
@@ -250,11 +262,6 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
     const docs=allDocsRef.current.length>0?allDocsRef.current:allDocs;
     const sc=scores||{};
     const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    var SCORE_LABELS={mercado:'Mercado',execucao:'Execucao',inovacao:'Inovacao',receita:'Receita',risco:'Baixo Risco'};
-    var css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px 24px 80px}h1{font-size:26px;color:#a78bfa;margin-bottom:6px}.sub{font-size:13px;color:#64748b;margin-bottom:28px}.scores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}.sc{background:#1e1b33;border:1px solid #2d2a4a;border-radius:10px;padding:14px 18px;min-width:120px;text-align:center}.sl{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:6px}.sv{font-size:28px;font-weight:700;color:#a78bfa}.sb{height:4px;border-radius:99px;background:#2d2a4a;margin-top:8px;overflow:hidden}.sf{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:20px 22px;margin-bottom:16px}.section h2{font-size:15px;font-weight:700;color:#a78bfa;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}.section .mh3{font-size:13px;font-weight:700;color:#c4b5fd;margin:14px 0 6px 0}.section strong{color:#e9d5ff;font-weight:600}p,li{font-size:13px;color:#cbd5e1;line-height:1.75;white-space:pre-wrap}.footer{margin-top:32px;font-size:11px;color:#334155;text-align:center}.pdf-btn{position:fixed;bottom:20px;right:20px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:14px 24px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.4);z-index:100}.pdf-btn:hover{background:#6d28d9}@media print{.pdf-btn{display:none}}';
-    var scoresHtml='';
-    var scoreKeys=['mercado','execucao','inovacao','receita','risco'];
-    scoreKeys.forEach(function(k){var v=sc[k]||0;var label=SCORE_LABELS[k]||k;scoresHtml+='<div class="sc"><div class="sl">'+label+'</div><div class="sv">'+v+'</div><div class="sb"><div class="sf" style="width:'+v*10+'%"></div></div></div>';});
     function mdToHtml(text){
       if(!text) return '';
       var safe=esc(text);
@@ -264,21 +271,185 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
       safe=safe.replace(/\n/g,'<br/>');
       return '<p>'+safe+'</p>';
     }
-    var docsHtml='';
-    docs.forEach(function(d){docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2>'+mdToHtml(d.content)+'</div>';});
+    // Compute totals and verdict
+    var scoreKeys=['mercado','execucao','inovacao','receita','risco'];
+    var scoreLabels={mercado:'Mercado',execucao:'Execucao',inovacao:'Inovacao',receita:'Receita',risco:'Baixo Risco'};
+    var scoreColors={mercado:'#10b981',execucao:'#3b82f6',inovacao:'#8b5cf6',receita:'#f59e0b',risco:'#06b6d4'};
+    var totalScore=0;scoreKeys.forEach(function(k){totalScore+=(sc[k]||0);});
+    var avgScore=(totalScore/5).toFixed(1);
     var cleanAnalysis=(analysis||'').replace(/SCORES:[^\n]+/,'').trim();
-    var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+esc(form.name)+'</title><style>'+css+'</style></head><body>'
+    var verdictMatch=cleanAnalysis.match(/VI[AÁ]VEL\s+COM\s+RESSALVAS|INVI[AÁ]VEL|VI[AÁ]VEL/i);
+    var verdict=verdictMatch?verdictMatch[0].toUpperCase().replace(/[ÁÂ]/g,'A'):'EM ANALISE';
+    var isInvia=verdict.indexOf('INVIA')>=0;
+    var isRessa=verdict.indexOf('RESSALVAS')>=0;
+    var verdictColor=isInvia?'#ef4444':(isRessa?'#f59e0b':'#10b981');
+    var verdictBg=isInvia?'rgba(239,68,68,0.15)':(isRessa?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)');
+    var verdictEmoji=isInvia?'⚠️':(isRessa?'⚡':'✅');
+
+    // Build chart data strings
+    var radarLabels=scoreKeys.map(function(k){return '"'+scoreLabels[k]+'"';}).join(',');
+    var radarData=scoreKeys.map(function(k){return (sc[k]||0);}).join(',');
+
+    // CSS
+    var css=''
+      +'*{box-sizing:border-box;margin:0;padding:0}'
+      +'html,body{background:#0a0a14;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}'
+      +'body{padding:0 0 100px 0;max-width:1100px;margin:0 auto}'
+      +'.hero{background:linear-gradient(135deg,#1a0f2e 0%,#0f0f1a 100%);padding:50px 40px 40px;border-bottom:1px solid #2d2a4a;position:relative;overflow:hidden}'
+      +'.hero::before{content:"";position:absolute;top:-50%;right:-20%;width:500px;height:500px;background:radial-gradient(circle,rgba(124,58,237,0.15) 0%,transparent 70%);pointer-events:none}'
+      +'.brand{font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.2em;text-transform:uppercase;margin-bottom:18px;position:relative}'
+      +'.hero h1{font-size:42px;font-weight:800;color:#f0f0ff;margin-bottom:12px;line-height:1.1;position:relative}'
+      +'.meta{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:#94a3b8;position:relative}'
+      +'.meta span{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:4px 12px}'
+      +'.verdict-badge{display:inline-flex;align-items:center;gap:8px;background:'+verdictBg+';color:'+verdictColor+';border:1px solid '+verdictColor+';border-radius:30px;padding:8px 20px;font-size:13px;font-weight:700;letter-spacing:.05em;margin-top:18px;position:relative}'
+      +'.section{padding:32px 40px;border-bottom:1px solid rgba(45,42,74,0.5)}'
+      +'.section-title{font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.2em;text-transform:uppercase;margin-bottom:20px}'
+      +'.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}'
+      +'.kpi{background:linear-gradient(135deg,#1a1730 0%,#13111f 100%);border:1px solid #2d2a4a;border-radius:14px;padding:20px}'
+      +'.kpi-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.15em;font-weight:600;margin-bottom:8px}'
+      +'.kpi-value{font-size:28px;font-weight:800;color:#e9d5ff;line-height:1}'
+      +'.kpi-value-sm{font-size:15px;font-weight:700;color:#e9d5ff}'
+      +'.kpi-sub{font-size:11px;color:#64748b;margin-top:4px}'
+      +'.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}'
+      +'.chart-card{background:linear-gradient(135deg,#1a1730 0%,#13111f 100%);border:1px solid #2d2a4a;border-radius:14px;padding:24px;min-height:340px}'
+      +'.chart-card h3{font-size:13px;font-weight:700;color:#e9d5ff;margin-bottom:16px}'
+      +'.chart-canvas{position:relative;height:260px}'
+      +'.infocard{background:linear-gradient(135deg,#1a1730 0%,#13111f 100%);border:1px solid #2d2a4a;border-radius:14px;padding:22px 24px;margin-bottom:14px}'
+      +'.infocard h3{font-size:12px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}'
+      +'.infocard p,.infocard li{font-size:14px;color:#cbd5e1;line-height:1.75}'
+      +'.infocard strong{color:#e9d5ff;font-weight:700}'
+      +'.infocard .mh3{font-size:14px;font-weight:700;color:#c4b5fd;margin:16px 0 8px 0}'
+      +'.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}'
+      +'.analysis-box{background:linear-gradient(135deg,#1a1730 0%,#13111f 100%);border:1px solid #2d2a4a;border-left:3px solid #a78bfa;border-radius:12px;padding:24px 28px;margin-bottom:14px}'
+      +'.analysis-box h3{font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px}'
+      +'.analysis-box p{font-size:14px;color:#cbd5e1;line-height:1.8}'
+      +'.analysis-box strong{color:#e9d5ff}'
+      +'.doc-item{background:linear-gradient(135deg,#1a1730 0%,#13111f 100%);border:1px solid #2d2a4a;border-radius:12px;margin-bottom:10px;overflow:hidden}'
+      +'.doc-header{padding:16px 22px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;transition:background .2s}'
+      +'.doc-header:hover{background:rgba(124,58,237,0.05)}'
+      +'.doc-num{display:inline-block;background:rgba(124,58,237,0.2);color:#a78bfa;font-weight:700;font-size:11px;padding:4px 10px;border-radius:20px;margin-right:12px}'
+      +'.doc-title{font-size:14px;font-weight:700;color:#e9d5ff;flex:1}'
+      +'.doc-arrow{color:#64748b;transition:transform .2s;font-size:12px}'
+      +'.doc-item.open .doc-arrow{transform:rotate(180deg)}'
+      +'.doc-body{max-height:0;overflow:hidden;transition:max-height .3s;padding:0 22px}'
+      +'.doc-item.open .doc-body{max-height:2000px;padding:8px 22px 22px 22px;border-top:1px solid #2d2a4a}'
+      +'.doc-body p,.doc-body li{font-size:13px;color:#cbd5e1;line-height:1.75}'
+      +'.doc-body strong{color:#e9d5ff;font-weight:700}'
+      +'.doc-body .mh3{font-size:13px;font-weight:700;color:#c4b5fd;margin:14px 0 6px 0}'
+      +'.verdict-banner{background:'+verdictBg+';border:2px solid '+verdictColor+';border-radius:18px;padding:32px;text-align:center;margin-top:8px}'
+      +'.verdict-banner h2{font-size:13px;font-weight:700;color:'+verdictColor+';letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}'
+      +'.verdict-banner .vb-main{font-size:36px;font-weight:800;color:'+verdictColor+';margin-bottom:8px}'
+      +'.verdict-banner .vb-sub{font-size:13px;color:#94a3b8}'
+      +'.footer{text-align:center;padding:40px 40px 20px;color:#475569;font-size:11px}'
+      +'.footer strong{color:#7c3aed}'
+      +'.pdf-btn{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#7c3aed 0%,#a78bfa 100%);color:white;border:none;border-radius:12px;padding:16px 26px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,0.5);z-index:100;display:flex;align-items:center;gap:8px;transition:transform .15s}'
+      +'.pdf-btn:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,0.6)}'
+      +'@media(max-width:768px){.hero{padding:32px 20px}.hero h1{font-size:30px}.section{padding:24px 20px}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}'
+      +'@media print{body{max-width:none;padding:0}.pdf-btn{display:none}.doc-body{max-height:none!important;padding:8px 22px 22px 22px!important;border-top:1px solid #2d2a4a!important}.doc-item{break-inside:avoid}.section{break-inside:avoid}.chart-card{break-inside:avoid}}';
+
+    // Hero
+    var heroHtml='<header class="hero">'
+      +'<div class="brand">idevIA · Relatorio Estrategico</div>'
       +'<h1>'+esc(form.name)+'</h1>'
-      +'<div class="sub">'+esc(form.category)+' · Gerado pelo idevIA em '+new Date().toLocaleDateString('pt-BR')+'</div>'
-      +'<div class="scores">'+scoresHtml+'</div>'
-      +(form.desc?'<div class="section"><h2>Descricao</h2><p>'+esc(form.desc)+'</p></div>':'')
-      +(form.target?'<div class="section"><h2>Publico-alvo</h2><p>'+esc(form.target)+'</p></div>':'')
-      +(form.problem?'<div class="section"><h2>Problema que resolve</h2><p>'+esc(form.problem)+'</p></div>':'')
-      +(form.model?'<div class="section"><h2>Modelo de receita</h2><p>'+esc(form.model)+'</p></div>':'')
-      +'<div class="section"><h2>Analise estrategica</h2>'+mdToHtml(cleanAnalysis)+'</div>'
+      +'<div class="meta">'
+      +'<span>'+esc(form.category)+'</span>'
+      +'<span>'+new Date().toLocaleDateString('pt-BR')+'</span>'
+      +(form.city?'<span>📍 '+esc(form.city)+'</span>':'')
+      +'</div>'
+      +'<div class="verdict-badge">'+verdictEmoji+' '+verdict+'</div>'
+      +'</header>';
+
+    // KPIs
+    var kpisHtml='<section class="section"><div class="section-title">Indicadores Principais</div><div class="kpis">'
+      +'<div class="kpi"><div class="kpi-label">Score Total</div><div class="kpi-value">'+totalScore+'<span style="font-size:16px;color:#64748b">/50</span></div><div class="kpi-sub">'+avgScore+' de media</div></div>'
+      +'<div class="kpi"><div class="kpi-label">Veredicto</div><div class="kpi-value-sm" style="color:'+verdictColor+'">'+verdictEmoji+' '+verdict+'</div></div>'
+      +'<div class="kpi"><div class="kpi-label">Melhor Score</div><div class="kpi-value">'+Math.max.apply(null,scoreKeys.map(function(k){return sc[k]||0;}))+'</div><div class="kpi-sub">de 10</div></div>'
+      +'<div class="kpi"><div class="kpi-label">Pior Score</div><div class="kpi-value">'+Math.min.apply(null,scoreKeys.map(function(k){return sc[k]||0;}))+'</div><div class="kpi-sub">de 10</div></div>'
+      +'</div></section>';
+
+    // Charts
+    var chartsHtml='<section class="section"><div class="section-title">Analise Visual</div><div class="charts">'
+      +'<div class="chart-card"><h3>🎯 Radar de Competencias</h3><div class="chart-canvas"><canvas id="radarChart"></canvas></div></div>'
+      +'<div class="chart-card"><h3>📊 Comparativo de Scores</h3><div class="chart-canvas"><canvas id="barChart"></canvas></div></div>'
+      +'</div></section>';
+
+    // Core info
+    var coreHtml='<section class="section"><div class="section-title">Informacoes do Negocio</div>'
+      +'<div class="grid2">'
+      +(form.desc?'<div class="infocard"><h3>Descricao</h3><p>'+esc(form.desc)+'</p></div>':'')
+      +(form.target?'<div class="infocard"><h3>Publico-alvo</h3><p>'+esc(form.target)+'</p></div>':'')
+      +(form.problem?'<div class="infocard"><h3>Problema que resolve</h3><p>'+esc(form.problem)+'</p></div>':'')
+      +(form.model?'<div class="infocard"><h3>Modelo de receita</h3><p>'+esc(form.model)+'</p></div>':'')
+      +'</div></section>';
+
+    // Analysis (broken into cards per ## section)
+    var analysisHtml='';
+    if(cleanAnalysis){
+      var sections=cleanAnalysis.split(/\n\n+/).filter(function(s){return s.trim();});
+      var aboxes='';
+      sections.forEach(function(sec){
+        var titleMatch=sec.match(/^##\s+(.+?)(\n|$)/);
+        if(titleMatch){
+          var title=titleMatch[1].trim();
+          var body=sec.replace(/^##\s+.+?\n?/,'').trim();
+          var bodyHtml=esc(body).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');
+          aboxes+='<div class="analysis-box"><h3>'+esc(title)+'</h3><p>'+bodyHtml+'</p></div>';
+        }else{
+          var plainHtml=esc(sec).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');
+          aboxes+='<div class="analysis-box"><p>'+plainHtml+'</p></div>';
+        }
+      });
+      analysisHtml='<section class="section"><div class="section-title">Analise Estrategica</div>'+aboxes+'</section>';
+    }
+
+    // 8 docs as accordion
+    var docsHtml='';
+    if(docs && docs.length>0){
+      var accordionItems='';
+      docs.forEach(function(d,i){
+        var num=String(i+1).padStart(2,'0');
+        var cleanName=d.name.replace(/^\d+\.\s*/,'');
+        accordionItems+='<div class="doc-item'+(i===0?' open':'')+'" onclick="this.classList.toggle(\'open\')">'
+          +'<div class="doc-header">'
+          +'<div><span class="doc-num">'+num+'</span><span class="doc-title">'+esc(cleanName)+'</span></div>'
+          +'<span class="doc-arrow">▼</span>'
+          +'</div>'
+          +'<div class="doc-body">'+mdToHtml(d.content)+'</div>'
+          +'</div>';
+      });
+      docsHtml='<section class="section"><div class="section-title">Documentacao Completa</div>'+accordionItems+'</section>';
+    }
+
+    // Verdict banner
+    var verdictBannerHtml='<section class="section"><div class="verdict-banner">'
+      +'<h2>Veredicto Final</h2>'
+      +'<div class="vb-main">'+verdictEmoji+' '+verdict+'</div>'
+      +'<div class="vb-sub">Score: '+totalScore+'/50 · Media: '+avgScore+'/10</div>'
+      +'</div></section>';
+
+    // Chart.js init script
+    var chartScript=''
+      +'var radarCtx=document.getElementById("radarChart").getContext("2d");'
+      +'new Chart(radarCtx,{type:"radar",data:{labels:['+radarLabels+'],datasets:[{label:"Score",data:['+radarData+'],backgroundColor:"rgba(124,58,237,0.25)",borderColor:"#a78bfa",borderWidth:2,pointBackgroundColor:"#a78bfa",pointBorderColor:"#fff",pointRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:10,ticks:{stepSize:2,color:"#64748b",backdropColor:"transparent",font:{size:10}},grid:{color:"rgba(71,85,105,0.3)"},angleLines:{color:"rgba(71,85,105,0.3)"},pointLabels:{color:"#cbd5e1",font:{size:12,weight:"600"}}}}}});'
+      +'var barCtx=document.getElementById("barChart").getContext("2d");'
+      +'new Chart(barCtx,{type:"bar",data:{labels:['+radarLabels+'],datasets:[{label:"Score (0-10)",data:['+radarData+'],backgroundColor:["#10b981","#3b82f6","#8b5cf6","#f59e0b","#06b6d4"],borderRadius:8,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:10,ticks:{stepSize:2,color:"#64748b"},grid:{color:"rgba(71,85,105,0.2)"}},x:{ticks:{color:"#cbd5e1",font:{size:11,weight:"600"}},grid:{display:false}}}}});';
+
+    var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'
+      +'<title>'+esc(form.name)+' — Relatorio idevIA</title>'
+      +'<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"><\/script>'
+      +'<style>'+css+'</style>'
+      +'</head><body>'
+      +heroHtml
+      +kpisHtml
+      +chartsHtml
+      +coreHtml
+      +analysisHtml
       +docsHtml
-      +'<button class="pdf-btn" onclick="window.print()">Salvar como PDF</button>'
-      +'<div class="footer">Gerado pelo idevIA</div></body></html>';
+      +verdictBannerHtml
+      +'<div class="footer">Relatorio gerado pelo <strong>idevIA</strong> em '+new Date().toLocaleDateString('pt-BR')+' · Sistema de gestao estrategica para fundadores</div>'
+      +'<button class="pdf-btn" onclick="window.print()">📄 Salvar como PDF</button>'
+      +'<script>window.addEventListener("load",function(){'+chartScript+'});<\/script>'
+      +'</body></html>';
     var blob=new Blob([html],{type:'text/html'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
@@ -465,9 +636,9 @@ function GenerateModal({T,onClose,onSelect,onSaveDraft}){
               </div>
               <div style={{fontSize:12,color:T.muted,lineHeight:1.6,marginBottom:9}}>{idea.descricao}</div>
               {idea.potencial==='Baixo'&&<div style={{fontSize:11,color:'#f87171',background:'rgba(220,38,38,0.1)',border:'1px solid rgba(220,38,38,0.25)',borderRadius:7,padding:'6px 10px',marginBottom:9}}>{'\u26A0\uFE0F Potencial baixo \u2014 considere se vale o investimento'}</div>}
-              <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+              <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'center'}}>
                 <button onClick={()=>{onSelect(idea);onClose();}} style={{background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,borderRadius:7,padding:'6px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>Usar esta →</button>
-                <button onClick={()=>{onSaveDraft(idea);}} style={{background:T.inputBg,color:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:'6px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>💾 Salvar rascunho</button>
+                <button onClick={()=>{onSaveDraft(idea);}} title="Salvar como rascunho" style={{background:'transparent',color:T.hint,border:`1px solid ${T.border}`,borderRadius:7,padding:'5px 9px',fontSize:14,cursor:'pointer'}}>💾</button>
               </div>
             </div>
             );
