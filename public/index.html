@@ -254,25 +254,29 @@ function CreateIdeaModal({T,onClose,onCreated,prefill}){
     const docs=allDocsRef.current.length>0?allDocsRef.current:allDocs;
     const sc=scores||{};
     const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{font-size:26px;color:#a78bfa;margin-bottom:6px}.sub{font-size:13px;color:#64748b;margin-bottom:28px}.scores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}.sc{background:#1e1b33;border:1px solid #2d2a4a;border-radius:10px;padding:14px 18px;min-width:120px;text-align:center}.sl{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:6px}.sv{font-size:28px;font-weight:700;color:#a78bfa}.sb{height:4px;border-radius:99px;background:#2d2a4a;margin-top:8px;overflow:hidden}.sf{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:20px 22px;margin-bottom:16px}.section h2{font-size:15px;font-weight:700;color:#a78bfa;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p,li{font-size:13px;color:#cbd5e1;line-height:1.75;white-space:pre-wrap}.footer{margin-top:32px;font-size:11px;color:#334155;text-align:center}';
-    let scoresHtml='';
-    Object.entries(sc).forEach(([k,v])=>{scoresHtml+='<div class="sc"><div class="sl">'+k+'</div><div class="sv">'+v+'</div><div class="sb"><div class="sf" style="width:'+v*10+'%"></div></div></div>';});
-    let docsHtml='';
-    docs.forEach(d=>{docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
-    const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+esc(form.name)+'</title><style>'+css+'</style></head><body>'
+    var SCORE_LABELS={mercado:'Mercado',execucao:'Execucao',inovacao:'Inovacao',receita:'Receita',risco:'Baixo Risco'};
+    var css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px 24px 80px}h1{font-size:26px;color:#a78bfa;margin-bottom:6px}.sub{font-size:13px;color:#64748b;margin-bottom:28px}.scores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}.sc{background:#1e1b33;border:1px solid #2d2a4a;border-radius:10px;padding:14px 18px;min-width:120px;text-align:center}.sl{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:6px}.sv{font-size:28px;font-weight:700;color:#a78bfa}.sb{height:4px;border-radius:99px;background:#2d2a4a;margin-top:8px;overflow:hidden}.sf{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:20px 22px;margin-bottom:16px}.section h2{font-size:15px;font-weight:700;color:#a78bfa;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p,li{font-size:13px;color:#cbd5e1;line-height:1.75;white-space:pre-wrap}.footer{margin-top:32px;font-size:11px;color:#334155;text-align:center}.pdf-btn{position:fixed;bottom:20px;right:20px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:14px 24px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.4);z-index:100}.pdf-btn:hover{background:#6d28d9}@media print{.pdf-btn{display:none}}';
+    var scoresHtml='';
+    var scoreKeys=['mercado','execucao','inovacao','receita','risco'];
+    scoreKeys.forEach(function(k){var v=sc[k]||0;var label=SCORE_LABELS[k]||k;scoresHtml+='<div class="sc"><div class="sl">'+label+'</div><div class="sv">'+v+'</div><div class="sb"><div class="sf" style="width:'+v*10+'%"></div></div></div>';});
+    var docsHtml='';
+    docs.forEach(function(d){docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
+    var cleanAnalysis=(analysis||'').replace(/SCORES:[^\n]+/,'');
+    var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+esc(form.name)+'</title><style>'+css+'</style></head><body>'
       +'<h1>'+esc(form.name)+'</h1>'
       +'<div class="sub">'+esc(form.category)+' · Gerado pelo idevIA em '+new Date().toLocaleDateString('pt-BR')+'</div>'
       +'<div class="scores">'+scoresHtml+'</div>'
-      +(form.desc?'<div class="section"><h2>Descrição</h2><p>'+esc(form.desc)+'</p></div>':'')
-      +(form.target?'<div class="section"><h2>Público-alvo</h2><p>'+esc(form.target)+'</p></div>':'')
+      +(form.desc?'<div class="section"><h2>Descricao</h2><p>'+esc(form.desc)+'</p></div>':'')
+      +(form.target?'<div class="section"><h2>Publico-alvo</h2><p>'+esc(form.target)+'</p></div>':'')
       +(form.problem?'<div class="section"><h2>Problema que resolve</h2><p>'+esc(form.problem)+'</p></div>':'')
       +(form.model?'<div class="section"><h2>Modelo de receita</h2><p>'+esc(form.model)+'</p></div>':'')
-      +'<div class="section"><h2>Análise estratégica</h2><p>'+esc((analysis||'').replace(/SCORES:[^\n]+/,''))+'</p></div>'
+      +'<div class="section"><h2>Analise estrategica</h2><p>'+esc(cleanAnalysis)+'</p></div>'
       +docsHtml
+      +'<button class="pdf-btn" onclick="window.print()">Salvar como PDF</button>'
       +'<div class="footer">Gerado pelo idevIA</div></body></html>';
-    const blob=new Blob([html],{type:'text/html'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
+    var blob=new Blob([html],{type:'text/html'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
     a.href=url;a.download='idevia_'+form.name.replace(/\s+/g,'_')+'.html';a.click();URL.revokeObjectURL(url);
   }
 
@@ -588,9 +592,9 @@ function IdeasPage({T}){
                     <div style={{fontSize:12,fontWeight:700,color:T.textStrong}}>📄 Documentos ({selected.docs.length})</div>
                     <button onClick={()=>{
                       const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                      const css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px}h1{color:#a78bfa;margin-bottom:20px}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:18px 20px;margin-bottom:14px}.section h2{font-size:14px;color:#a78bfa;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p{font-size:13px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap}.footer{margin-top:24px;font-size:11px;color:#334155;text-align:center}';
-                      let docsHtml='';selected.docs.forEach(d=>{docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
-                      const html='<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>'+esc(selected.name)+'</title><style>'+css+'</style></head><body><h1>'+esc(selected.name)+'</h1>'+docsHtml+'<div class="footer">idevIA</div></body></html>';
+                      var css='*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,sans-serif;background:#0f0f1a;color:#e2e8f0;padding:24px 24px 80px}h1{color:#a78bfa;margin-bottom:20px}.section{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px;padding:18px 20px;margin-bottom:14px}.section h2{font-size:14px;color:#a78bfa;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #2d2a4a}p{font-size:13px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap}.footer{margin-top:24px;font-size:11px;color:#334155;text-align:center}.pdf-btn{position:fixed;bottom:20px;right:20px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:14px 24px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.4);z-index:100}.pdf-btn:hover{background:#6d28d9}@media print{.pdf-btn{display:none}}';
+                      var docsHtml='';selected.docs.forEach(function(d){docsHtml+='<div class="section"><h2>'+esc(d.name)+'</h2><p>'+esc(d.content)+'</p></div>';});
+                      var html='<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>'+esc(selected.name)+'</title><style>'+css+'</style></head><body><h1>'+esc(selected.name)+'</h1>'+docsHtml+'<button class="pdf-btn" onclick="window.print()">Salvar como PDF</button><div class="footer">idevIA</div></body></html>';
                       const blob=new Blob([html],{type:'text/html'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='idevia_'+selected.name.replace(/\s+/g,'_')+'.html';a.click();URL.revokeObjectURL(url);
                     }} style={{background:'#2563eb',color:'white',border:'none',borderRadius:8,padding:'5px 12px',fontSize:12,fontWeight:600,cursor:'pointer'}}>⬇️ Baixar</button>
                   </div>
