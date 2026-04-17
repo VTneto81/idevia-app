@@ -860,6 +860,8 @@ function IdeasPage({T}){
   const [seeded,setSeeded]=useState(false);
   const [activeId,setActiveId]=useState(()=>localStorage.getItem('active_idea_id')||null);
   const [switchPrompt,setSwitchPrompt]=useState(null);
+  const [compareMode,setCompareMode]=useState(false);
+  const [compareIds,setCompareIds]=useState([]);
 
   async function reanalyzeIdea(){
     if(!selected||reanalyzing) return;
@@ -947,6 +949,7 @@ function IdeasPage({T}){
   return (
     <div>
       {seeded&&<div style={{background:'rgba(22,163,74,0.1)',border:'1px solid rgba(22,163,74,0.3)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:13,color:'#4ade80'}}>✅ {SEED_IDEAS.length} ideias carregadas — todos os projetos das verticais, incluindo Venture OS, AgendaFácil e EstudaAí.</div>}
+      {compareMode&&<div style={{background:'rgba(124,58,237,0.1)',border:'1px solid rgba(124,58,237,0.3)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:13,color:T.accent}}>⚖️ Modo comparação — selecione 2 ou 3 ideias para comparar lado a lado</div>}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10,marginBottom:18}}>
         <div>
@@ -987,6 +990,7 @@ function IdeasPage({T}){
               e.target.value='';
             }}/>
           </label>
+          <button onClick={()=>{if(compareMode){setCompareMode(false);setCompareIds([]);}else{setCompareMode(true);setCompareIds([]);}}} style={{background:compareMode?'rgba(124,58,237,0.15)':'none',color:compareMode?T.accent:T.muted,border:`1px solid ${compareMode?T.accent+'44':T.border}`,borderRadius:9,padding:'9px 12px',fontSize:12,cursor:'pointer',fontWeight:compareMode?700:400}}>{compareMode?'✕ Cancelar':'⚖️ Comparar'}</button>
           <button onClick={()=>setShowGen(true)} style={{background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,borderRadius:9,padding:'9px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>✨ Gerar Ideia</button>
           <button onClick={()=>{setPrefill(null);setShowCreate(true);}} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:'none',borderRadius:9,padding:'9px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ Nova Ideia</button>
         </div>
@@ -1049,8 +1053,13 @@ function IdeasPage({T}){
       )}
 
       {filtered.map(idea=>(
-        <div key={idea.id} style={cardS} className="fade-in">
+        <div key={idea.id} style={{...cardS,border:compareIds.indexOf(idea.id)>=0?'1px solid '+T.accent:cardS.border}} className="fade-in">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:9,marginBottom:9}}>
+            {compareMode&&(
+              <div onClick={()=>{var idx=compareIds.indexOf(idea.id);if(idx>=0){setCompareIds(compareIds.filter(function(x){return x!==idea.id;}));}else if(compareIds.length<3){setCompareIds([...compareIds,idea.id]);}}} style={{width:22,height:22,borderRadius:6,border:compareIds.indexOf(idea.id)>=0?'none':'2px solid '+T.border,background:compareIds.indexOf(idea.id)>=0?T.accent:T.inputBg,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:2}}>
+                {compareIds.indexOf(idea.id)>=0&&<span style={{color:'white',fontSize:11,fontWeight:700}}>✓</span>}
+              </div>
+            )}
             <div style={{flex:1}}>
               <div style={{display:'flex',gap:7,alignItems:'center',flexWrap:'wrap',marginBottom:4}}>
                 <span style={{fontSize:15,fontWeight:700,color:T.textStrong}}>{idea.name}</span>
@@ -1116,6 +1125,49 @@ function IdeasPage({T}){
 
       {/* EDIT IDEA MODAL */}
       {editing&&<EditIdeaModal T={T} idea={editing} onClose={()=>setEditing(null)} onSave={async p=>{await updateIdea(editing.id,p);setEditing(null);}}/>}
+
+      {/* COMPARE FLOATING BAR */}
+      {compareMode&&compareIds.length>0&&(
+        <div style={{position:'fixed',bottom:20,left:'50%',transform:'translateX(-50%)',background:T.card,border:'1px solid '+T.accent+'44',borderRadius:14,padding:'12px 20px',display:'flex',gap:12,alignItems:'center',zIndex:400,boxShadow:'0 8px 30px rgba(0,0,0,0.5)'}}>
+          <span style={{fontSize:12,color:T.muted}}>{compareIds.length}/3 selecionada{compareIds.length>1?'s':''}</span>
+          <button disabled={compareIds.length<2} onClick={()=>{}} style={{display:'none'}}/>
+          {compareIds.length>=2&&(
+            <button onClick={()=>{
+              var cIdeas=compareIds.map(function(id){return ideas.find(function(i){return i.id===id;});}).filter(Boolean);
+              var w=window.open('','_blank');
+              var esc=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+              var cols=cIdeas.map(function(idea){
+                var sc=idea.scores||{};
+                var total=(sc.mercado||0)+(sc.execucao||0)+(sc.inovacao||0)+(sc.receita||0)+(sc.risco||0);
+                return '<td style="padding:14px;vertical-align:top;width:'+(100/cIdeas.length)+'%">'
+                  +'<h3 style="color:#a78bfa;margin-bottom:8px">'+esc(idea.name)+'</h3>'
+                  +'<div style="font-size:12px;color:#94a3b8;margin-bottom:12px">'+esc(idea.category)+' · '+esc(idea.status)+'</div>'
+                  +'<div style="font-size:28px;font-weight:800;color:'+(total>=35?'#10b981':total>=25?'#f59e0b':'#ef4444')+'">'+total+'<span style="font-size:14px;color:#64748b">/50</span></div>'
+                  +'<div style="margin:12px 0;font-size:12px;color:#cbd5e1">'
+                  +'<div>Mercado: <strong>'+(sc.mercado||0)+'</strong></div>'
+                  +'<div>Execução: <strong>'+(sc.execucao||0)+'</strong></div>'
+                  +'<div>Inovação: <strong>'+(sc.inovacao||0)+'</strong></div>'
+                  +'<div>Receita: <strong>'+(sc.receita||0)+'</strong></div>'
+                  +'<div>Baixo Risco: <strong>'+(sc.risco||0)+'</strong></div>'
+                  +'</div>'
+                  +'<div style="font-size:12px;color:#94a3b8;margin-top:10px;padding-top:10px;border-top:1px solid #2d2a4a"><strong>Público:</strong> '+esc(idea.target||'-')+'</div>'
+                  +'<div style="font-size:12px;color:#94a3b8;margin-top:6px"><strong>Modelo:</strong> '+esc(idea.model||'-')+'</div>'
+                  +'<div style="font-size:12px;color:#94a3b8;margin-top:6px"><strong>Problema:</strong> '+esc(idea.problem||'-')+'</div>'
+                  +'<div style="font-size:12px;color:#cbd5e1;margin-top:10px;padding-top:10px;border-top:1px solid #2d2a4a;line-height:1.7">'+esc(idea.desc)+'</div>'
+                  +'</td>';
+              }).join('');
+              var html='<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Comparação — idevIA</title><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0a0a14;color:#e2e8f0;font-family:-apple-system,sans-serif;padding:30px}h1{color:#a78bfa;font-size:24px;margin-bottom:6px}h3{font-size:16px}.sub{color:#64748b;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse}td{background:#1a1730;border:1px solid #2d2a4a;border-radius:12px}strong{color:#e9d5ff}.btn{position:fixed;bottom:20px;right:20px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:14px 22px;font-size:13px;font-weight:700;cursor:pointer}@media print{.btn{display:none}}</style></head><body>'
+                +'<h1>⚖️ Comparação de Ideias</h1>'
+                +'<div class="sub">idevIA · '+new Date().toLocaleDateString('pt-BR')+'</div>'
+                +'<table><tr>'+cols+'</tr></table>'
+                +'<button class="btn" onclick="window.print()">🖨️ Imprimir</button>'
+                +'</body></html>';
+              w.document.write(html);w.document.close();
+            }} style={{background:T.accent,color:T.bg,border:'none',borderRadius:9,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>⚖️ Comparar {compareIds.length} ideias</button>
+          )}
+          <button onClick={()=>{setCompareMode(false);setCompareIds([]);}} style={{background:'none',color:T.hint,border:'1px solid '+T.border,borderRadius:9,padding:'8px 12px',fontSize:11,cursor:'pointer'}}>Cancelar</button>
+        </div>
+      )}
 
       {/* DETAIL MODAL */}
       {selected&&(
